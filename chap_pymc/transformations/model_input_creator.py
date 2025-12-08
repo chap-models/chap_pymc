@@ -7,10 +7,12 @@ import pandas as pd
 import pydantic
 import pytest
 import xarray
-from pydantic import Field
 from xarray import Dataset
 
-from chap_pymc.transformations.seasonal_transform import SeasonalTransform, TransformParameters
+from chap_pymc.transformations.seasonal_transform import (
+    SeasonalTransform,
+    TransformParameters,
+)
 from chap_pymc.transformations.seasonal_xarray import SeasonalXArray, TimeCoords
 
 logger = logging.getLogger(__name__)
@@ -126,7 +128,7 @@ class FourierInputCreator:
             bottom_season_coords = season_means.epi_year.values[bottom_season_indices]
             # Set those seasons to nan
             for season in bottom_season_coords:
-                y.loc[dict(epi_year=season)] = np.nan
+                y.loc[{"epi_year": season}] = np.nan
 
 
         y_mean = y.mean(dim=('epi_year', 'epi_offset'), skipna=True)
@@ -209,7 +211,7 @@ class FourierInputCreator:
         first_year_nans = int(X.isel(epi_year=0).isnull().sum().values)
         print(f"X_v2: first year (index 0, coord {X.epi_year.values[0]}) has {first_year_nans} NaNs")
         if X.isel(epi_year=0).isnull().any():
-            print(f"X_v2: removing first year due to NaNs")
+            print("X_v2: removing first year due to NaNs")
             X = X.isel(epi_year=slice(1, None))
 
         # Debug: final check

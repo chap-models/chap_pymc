@@ -232,8 +232,5 @@ class SeasonalXArray:
 
         if self._params.alignment == 'min':
             return min_month
-        assert False, "Only 'min' alignment is currently supported"
-        med: int = (min_month + max_month - 6) / 2  # type: ignore
-        med = int(med - 1) % self.season_length + 1
-        return med
+        raise ValueError("Only 'min' alignment is currently supported")
 

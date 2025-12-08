@@ -278,7 +278,7 @@ def test_xarray(colombia_df: pd.DataFrame) -> None:
     corr_df = corr.to_dataframe(name='correlation').reset_index()
 
     # Add month names from the coordinate
-    month_name_map = dict(zip(y.coords['seasonal_month'].values, y.coords['month_name'].values))
+    month_name_map = dict(zip(y.coords['seasonal_month'].values, y.coords['month_name'].values, strict=True))
     corr_df['month_name'] = corr_df['seasonal_month'].map(month_name_map)
 
     chart = altair.Chart(corr_df).mark_bar().encode(

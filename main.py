@@ -1,125 +1,178 @@
-import json
-import logging
-from pathlib import Path
+"""Chapkit-integrated Fourier seasonal forecasting service.
 
-import cyclopts
+CLIM-237: Chapkit integration for chap_pymc model.
+"""
+
+from typing import Any
+
 import pandas as pd
-import yaml
+import structlog
+from chapkit import BaseConfig
+from chapkit.api import AssessedStatus, MLServiceBuilder, MLServiceInfo
+from chapkit.artifact import ArtifactHierarchy
+from chapkit.data import DataFrame
+from chapkit.ml import BaseModelRunner
+from geojson_pydantic import FeatureCollection
 
-from chap_pymc.configs.chap_config import ChapConfig, FullConfig
 from chap_pymc.curve_parametrizations.fourier_parametrization import (
     FourierHyperparameters,
 )
 from chap_pymc.inference_params import InferenceParams
-from chap_pymc.models.seasonal_fourier_regression import (
-    SeasonalFourierRegressionV2,
-)
+from chap_pymc.models.seasonal_fourier_regression import SeasonalFourierRegressionV2
 from chap_pymc.transformations.model_input_creator import FourierInputCreator
 
-
-def detect_frequency(df: pd.DataFrame) -> str:
-    """Detect data frequency from time_period format.
-
-    Returns 'W' for weekly data, 'M' for monthly data.
-    """
-    sample_period = str(df['time_period'].iloc[0])
-
-    # Date range format indicates weekly data
-    if '/' in sample_period:
-        return 'W'
-
-    # ISO week format (e.g., "2024-W15")
-    if 'w' in sample_period.lower():
-        return 'W'
-
-    # Check if period number > 12 (must be weekly)
-    parts = sample_period.split('-')
-    if len(parts) == 2:
-        period = int(parts[1])
-        if period > 12:
-            return 'W'
-
-    return 'M'
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-app = cyclopts.App()
-#
-@app.command()
-def train(train_data: str, model: str, model_config: str, force=False):
-    return
+log = structlog.get_logger()
 
 
+class FourierModelConfig(BaseConfig):
+    """Configuration for Fourier seasonal forecasting model."""
 
-@app.command()
-def predict(model: str,
-            historic_data: str,
-            future_data: str,
-            out_file: str,
-            model_config: str | None = None,
-            report_filename: str | None = None,
-            save_plot: bool = False,
-            save_data: bool = False,
-            ):
-    """
-    Generate predictions using either seasonal or Fourier regression model.
+    # Inference parameters
+    method: str = "advi"  # "hmc" or "advi"
+    draws: int = 500
+    tune: int = 500
+    chains: int = 2
+    target_accept: float = 0.9
+    n_iterations: int = 30000
+    n_samples: int = 100
 
-    Args:
-        model_type: Type of model to use ('seasonal' or 'fourier')
-        historic_data: Path to CSV with historical training data
-        future_data: Path to CSV with future data (not used currently)
-        out_file: Path to save predictions CSV
-        parsed_model_config: Optional path to model configuration
-        inference_method: Inference method to use ('hmc' or 'advi')
-        save_plot: Whether to save diagnostic plots (default: False)
-        save_data: Whether to save intermediate data files (default: False)
-    """
-    parsed_model_config = FullConfig()
-    if model_config is not None:
-        content = open(model_config).read()
-        logger.info(content)
-        if model_config.endswith('.json'):
-            data = json.loads(content)  # type: ignore
-        elif model_config.endswith('.yaml'):
-            data = yaml.load(content, Loader=yaml.FullLoader)
-        if 'user_options' not in data:
-            data['user_options']  = {}
-        parsed_model_config = ChapConfig.model_validate(data).user_options
-    training_df = pd.read_csv(historic_data)
-    future_df = pd.read_csv(future_data)
+    # Fourier hyperparameters
+    n_harmonics: int = 2
+    prior_strength: float = 1.0
+    mixture_weight_prior: float = 0.5
 
-    # Detect data frequency and set in params
-    frequency = detect_frequency(training_df)
-    logger.info(f"Detected data frequency: {frequency}")
+    # Input parameters
+    lag: int = 1
 
-    inference_params = InferenceParams(**parsed_model_config.model_dump())
-    fourier_hyperparameters = FourierHyperparameters(**parsed_model_config.model_dump())
 
-    # Create input params with detected frequency
-    #seasonal_params = SeasonalXArray.Params(frequency=frequency)
-    input_params = FourierInputCreator.Params(
-        **parsed_model_config.model_dump(),
-        #seasonal_params=seasonal_params
+class FourierModelRunner(BaseModelRunner[FourierModelConfig]):
+    """Model runner for Fourier seasonal forecasting."""
+
+    async def on_train(
+        self,
+        config: FourierModelConfig,
+        data: DataFrame,
+        geo: FeatureCollection | None = None,
+    ) -> Any:
+        """Train is a no-op - PyMC model trains during prediction.
+
+        Returns config for reproducibility tracking.
+        """
+        log.info("fourier_model_train", note="Model trains during prediction")
+        return {"config": config.model_dump()}
+
+    async def on_predict(
+        self,
+        config: FourierModelConfig,
+        model: Any,
+        historic: DataFrame,
+        future: DataFrame,
+        geo: FeatureCollection | None = None,
+    ) -> DataFrame:
+        """Make predictions using the Fourier seasonal model."""
+        historic_df = historic.to_pandas()
+        future_df = future.to_pandas()
+
+        frequency = self._detect_frequency(historic_df)
+        log.info(
+            "prediction_started",
+            frequency=frequency,
+            historic_rows=len(historic_df),
+            future_rows=len(future_df),
+        )
+
+        # Build model parameters from config
+        inference_params = InferenceParams(
+            method=config.method,
+            draws=config.draws,
+            tune=config.tune,
+            chains=config.chains,
+            target_accept=config.target_accept,
+            n_iterations=config.n_iterations,
+            n_samples=config.n_samples,
+        )
+        fourier_hyperparameters = FourierHyperparameters(
+            n_harmonics=config.n_harmonics,
+            prior_strength=config.prior_strength,
+            mixture_weight_prior=config.mixture_weight_prior,
+        )
+        input_params = FourierInputCreator.Params(lag=config.lag)
+        input_params.seasonal_params.frequency = frequency
+
+        params = SeasonalFourierRegressionV2.Params(
+            inference_params=inference_params,
+            fourier_hyperparameters=fourier_hyperparameters,
+            input_params=input_params,
+        )
+
+        # Run prediction
+        regression_model = SeasonalFourierRegressionV2(params)
+        predictions_df = regression_model.predict(
+            historic_df, future_df, save_plot=False
+        )
+
+        log.info(
+            "prediction_complete",
+            rows=len(predictions_df),
+            sample_columns=len(
+                [c for c in predictions_df.columns if c.startswith("sample_")]
+            ),
+        )
+
+        return DataFrame.from_pandas(predictions_df)
+
+    def _detect_frequency(self, df: pd.DataFrame) -> str:
+        """Detect data frequency from time_period format."""
+        sample_period = str(df["time_period"].iloc[0])
+
+        if "/" in sample_period:
+            return "W"
+        if "w" in sample_period.lower():
+            return "W"
+
+        parts = sample_period.split("-")
+        if len(parts) == 2:
+            period = int(parts[1])
+            if period > 12:
+                return "W"
+
+        return "M"
+
+
+# Service configuration
+info = MLServiceInfo(
+    display_name="Fourier Seasonal Forecasting Service",
+    version="1.0.0",
+    summary="Bayesian seasonal forecasting using Fourier harmonics",
+    description=(
+        "Predict disease incidence using PyMC-based Fourier seasonal model "
+        "with temperature features and hierarchical priors."
+    ),
+    author="DHIS2 CHAP Team",
+    author_assessed_status=AssessedStatus.yellow,
+    contact_email="chap@dhis2.org",
+)
+
+HIERARCHY = ArtifactHierarchy(
+    name="fourier_forecast",
+    level_labels={0: "ml_training", 1: "ml_prediction"},
+)
+
+runner = FourierModelRunner()
+
+app = (
+    MLServiceBuilder(
+        info=info,
+        config_schema=FourierModelConfig,
+        hierarchy=HIERARCHY,
+        runner=runner,
     )
-    input_params.seasonal_params.frequency = frequency
-    params=SeasonalFourierRegressionV2.Params(inference_params=inference_params,
-                                              fourier_hyperparameters=fourier_hyperparameters,
-                                              input_params=input_params)
-    name = Path(historic_data).stem if save_data else None
-    regression_model = SeasonalFourierRegressionV2(params, name=name)
-    # Note: save_plot will be skipped if name contains invalid path characters
-    # model = SeasonalFourierRegression(
-    #     prediction_length=3,
-    #     lag=3,
-    #     fourier_hyperparameters=FourierHyperparameters(**parsed_model_config.model_dump()),
-    #     inference_params=inference_params
-    # )
-    predictions = regression_model.predict(training_df, future_df, save_plot=save_plot)
-    predictions.to_csv(out_file, index=False)
-    print(f"Predictions saved to {out_file}")
-    if report_filename is not None:
-        regression_model.save_report(report_filename)
+    .with_monitoring()
+    .build()
+)
 
 
 if __name__ == "__main__":
-    app()
+    from chapkit.api import run_app
+
+    run_app("main:app")
