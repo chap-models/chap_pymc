@@ -141,7 +141,6 @@ exclude = ["tests/", "examples/"]
 [[tool.mypy.overrides]]
 module = [
     "pymc.*",
-    "pytensor.*",
     "arviz.*",
     "chap_core.*",
     "scipy.*",
@@ -150,6 +149,12 @@ module = [
     "structlog.*",
     "geojson_pydantic.*",
 ]
+ignore_missing_imports = true
+
+# pytensor causes mypy crashes due to stub issues - skip entirely
+[[tool.mypy.overrides]]
+module = "pytensor.*"
+follow_imports = "skip"
 ignore_missing_imports = true
 
 # Strict typing for fully typed modules

@@ -85,21 +85,23 @@ class SeasonalTransform:
         self._remove_first_year = self.first_seasonal_month > 0
 
     def _find_min_month(self) -> int:
-        means: list[tuple[int, float]] = [(month, group['y'].mean()) for month, group in self._df.groupby('month')]
-        min_month, val  = min(means, key=lambda x: x[1])
-        max_month, val = max(means, key=lambda x: x[1])
+        means: list[tuple[int, float]] = []
+        for month, group in self._df.groupby('month'):
+            means.append((int(str(month)), float(group['y'].mean())))
+        min_month, _  = min(means, key=lambda x: x[1])
+        max_month, _ = max(means, key=lambda x: x[1])
         print(f"min_month: {min_month}, max_month: {max_month}")
-
 
         if self._params.alignment == 'min':
             return min_month
-        med: int = (min_month + max_month - 6) / 2  # type: ignore
+        med = (min_month + max_month - 6) / 2
         med = int(med - 1) % MONTHS_PER_YEAR + 1
         return med
 
 
     def get_df(self, feature_name: str, start_year: int | None = None) -> pd.DataFrame:
         array = self[feature_name]
+        start = start_year if start_year is not None else 0
         rows = [
             {
                 'location': loc,
@@ -108,14 +110,14 @@ class SeasonalTransform:
                 feature_name: array[loc_idx, season_idx, month_idx]
             }
             for loc_idx, loc in enumerate(self._df['location'].unique())
-            for season_idx in range(start_year, array.shape[1])
+            for season_idx in range(start, array.shape[1])
             for month_idx in range(array.shape[2])
         ]
         return pd.DataFrame(rows)
 
 
     def plot_feature(self, feature_name: str) -> Any:
-        import altair as alt
+        import altair as alt  # type: ignore[import-not-found]
         df = self.get_df(feature_name, start_year=1)
         chart = alt.Chart(df).mark_line().encode(
             x='seasonal_month',
@@ -205,7 +207,7 @@ class SeasonalTransform:
 
         logger.info(f"Padding {self._pad_right} months to the right")
         logger.info(f"Before right pad: data_array.shape = {data_array.shape}, pad_array.shape = {pad_array.shape}")
-        result = np.concatenate([data_array, pad_array], axis=-1)
+        result: np.ndarray = np.concatenate([data_array, pad_array], axis=-1)
         logger.info(f"After right pad: data_array.shape = {result.shape}")
         return result
 
@@ -231,7 +233,7 @@ class SeasonalTransform:
 
         logger.info(f"Padding {self._pad_left} months to the left")
         logger.info(f"Before left pad: data_array.shape = {data_array.shape}, left_pad_array.shape = {left_pad_array.shape}")
-        result = np.concatenate([left_pad_array, data_array], axis=-1)
+        result: np.ndarray = np.concatenate([left_pad_array, data_array], axis=-1)
         logger.info(f"After left pad: data_array.shape = {result.shape}")
         return result
 

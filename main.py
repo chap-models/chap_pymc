@@ -3,7 +3,7 @@
 CLIM-237: Chapkit integration for chap_pymc model.
 """
 
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 import structlog
@@ -28,7 +28,7 @@ class FourierModelConfig(BaseConfig):
     """Configuration for Fourier seasonal forecasting model."""
 
     # Inference parameters
-    method: str = "advi"  # "hmc" or "advi"
+    method: Literal["hmc", "advi"] = "advi"
     draws: int = 500
     tune: int = 500
     chains: int = 2
