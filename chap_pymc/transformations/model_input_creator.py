@@ -80,21 +80,22 @@ class FourierInputCreator:
     def __init__(
         self,
         prediction_length: int = 3,
-        lag: int = 3,
-        params: Params = Params(),
+        lag: int | None = None,
+        params: Params | None = None,
     ):
         """
         Initialize FourierInputCreator.
 
         Args:
             prediction_length: Number of months to predict ahead
-            lag: Number of lagged temperature months to use as features
-            mask_empty_seasons: Whether to mask seasons with low disease incidence
+            lag: Number of lagged temperature months to use as features (defaults to params.lag)
+            params: Configuration parameters
         """
         self._prediction_length = prediction_length
-        self._lag = lag
+        self._params = params if params is not None else self.Params()
+        # Use params.lag if lag not explicitly provided
+        self._lag = lag if lag is not None else self._params.lag
         self._seasonal_data: SeasonalTransform | None = None  # For backward compatibility
-        self._params = params
 
     @property
     def seasonal_data(self) -> SeasonalTransform:

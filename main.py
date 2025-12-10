@@ -39,7 +39,6 @@ class FourierModelConfig(BaseConfig):
     # Fourier hyperparameters
     n_harmonics: int = 2
     prior_strength: float = 1.0
-    mixture_weight_prior: float = 0.5
 
     # Input parameters
     lag: int = 1
@@ -94,7 +93,6 @@ class FourierModelRunner(BaseModelRunner[FourierModelConfig]):
         fourier_hyperparameters = FourierHyperparameters(
             n_harmonics=config.n_harmonics,
             prior_strength=config.prior_strength,
-            mixture_weight_prior=config.mixture_weight_prior,
         )
         input_params = FourierInputCreator.Params(lag=config.lag)
         input_params.seasonal_params.frequency = frequency
