@@ -69,9 +69,9 @@ class FourierInputCreator:
     3. Computes seasonal patterns
     4. Returns xarray DataArrays with full coordinate information
     """
-    features = ['mean_temperature']
     class Params(pydantic.BaseModel):
         lag: int = 3
+        covariates: list[str] = ['mean_temperature']
         seasonal_params: SeasonalXArray.Params = SeasonalXArray.Params()
         skip_bottom_n_seasons: int = 0
 
@@ -166,7 +166,8 @@ class FourierInputCreator:
         y = y.sel(epi_year=X.epi_year)
         prev_year_y = prev_year_y.sel(epi_year=X.epi_year)
 
-        assert X.shape[-1] == self._params.lag
+        n_features = self._params.lag * len(self._params.covariates)
+        assert X.shape[-1] == n_features, f"Expected {n_features} features, got {X.shape[-1]}"
         assert not X.isnull().any(), f"NaNs found in feature array X: {X.where(X.isnull(), drop=True)}"
         ds = xarray.Dataset({'X': X, 'y': y, 'prev_year_y': prev_year_y})
         ds.attrs['season_length'] = season_length  # Store season_length as attribute
@@ -178,32 +179,39 @@ class FourierInputCreator:
         params = self._params.seasonal_params.copy()
         params.split_season_index = first_month
         ds_result = SeasonalXArray(params).get_dataset(training_data)[0]
-        X = ds_result['mean_temperature']
 
-        # Debug: check for NaNs after SeasonalXArray
-        nan_count = int(X.isnull().sum().values)
-        if nan_count > 0:
-            print(f"X_v2 after SeasonalXArray: {nan_count} NaNs, shape={X.shape}")
-            # Show which years have NaNs
-            for year in X.epi_year.values:
-                year_nans = int(X.sel(epi_year=year).isnull().sum().values)
-                if year_nans > 0:
-                    print(f"  epi_year {year}: {year_nans} NaNs")
+        covariate_arrays = []
+        for cov in self._params.covariates:
+            arr = ds_result[cov]
 
-        X = X.isel(epi_offset=slice(-self._lag, None))
-        X = X.rename({'epi_offset': 'feature'})
+            # Debug: check for NaNs after SeasonalXArray
+            nan_count = int(arr.isnull().sum().values)
+            if nan_count > 0:
+                print(f"X_v2 {cov} after SeasonalXArray: {nan_count} NaNs, shape={arr.shape}")
+                for year in arr.epi_year.values:
+                    year_nans = int(arr.sel(epi_year=year).isnull().sum().values)
+                    if year_nans > 0:
+                        print(f"  epi_year {year}: {year_nans} NaNs")
 
-        # Debug: check after slicing
-        nan_count = int(X.isnull().sum().values)
-        if nan_count > 0:
-            print(f"X_v2 after slice to lag={self._lag}: {nan_count} NaNs, shape={X.shape}")
+            arr = arr.isel(epi_offset=slice(-self._lag, None))
+            arr = arr.rename({'epi_offset': 'feature'})
 
-        X = (X - X.mean(dim=('epi_year','feature'))) / X.std(dim=('epi_year','feature'))
+            # Debug: check after slicing
+            nan_count = int(arr.isnull().sum().values)
+            if nan_count > 0:
+                print(f"X_v2 {cov} after slice to lag={self._lag}: {nan_count} NaNs, shape={arr.shape}")
 
-        # Debug: check after normalization
-        nan_count = int(X.isnull().sum().values)
-        if nan_count > 0:
-            print(f"X_v2 after normalization: {nan_count} NaNs, shape={X.shape}")
+            arr = (arr - arr.mean(dim=('epi_year', 'feature'))) / arr.std(dim=('epi_year', 'feature'))
+
+            # Debug: check after normalization
+            nan_count = int(arr.isnull().sum().values)
+            if nan_count > 0:
+                print(f"X_v2 {cov} after normalization: {nan_count} NaNs, shape={arr.shape}")
+
+            covariate_arrays.append(arr)
+
+        # Flatten covariates × lag into a single feature dimension
+        X = xarray.concat(covariate_arrays, dim='feature')
 
         # Remove first year if missing predictors
         first_year_nans = int(X.isel(epi_year=0).isnull().sum().values)
@@ -286,17 +294,20 @@ class FourierInputCreator:
             Array of shape (locations, years, lag)
         """
         last_month = seasonal_data.last_seasonal_month_raw
-        X = seasonal_data.get_xarray('mean_temperature', drop_first_year=not add_last_year, add_last_year=add_last_year)
-        X = X.isel(epi_offset=slice(max(last_month-self._lag+1, 0), last_month + 1))
-        X = X.rename({'epi_offset': 'feature'})
-        std = X.std(dim=('epi_year','feature'), skipna=True)
-        mean = X.mean(dim=('epi_year','feature'), skipna=True)
-        X = (X - mean) / std
-        if add_last_year:
-            # Shift years up by one to drop the first incomplete year
-            X_new = X.isel(epi_year=slice(None, -1))
-            X_new.coords['epi_year'] = X.coords['epi_year'][1:]
-            X = X_new
+        covariate_arrays = []
+        for cov in self._params.covariates:
+            arr = seasonal_data.get_xarray(cov, drop_first_year=not add_last_year, add_last_year=add_last_year)
+            arr = arr.isel(epi_offset=slice(max(last_month-self._lag+1, 0), last_month + 1))
+            arr = arr.rename({'epi_offset': 'feature'})
+            std = arr.std(dim=('epi_year','feature'), skipna=True)
+            mean = arr.mean(dim=('epi_year','feature'), skipna=True)
+            arr = (arr - mean) / std
+            if add_last_year:
+                arr_new = arr.isel(epi_year=slice(None, -1))
+                arr_new.coords['epi_year'] = arr.coords['epi_year'][1:]
+                arr = arr_new
+            covariate_arrays.append(arr)
+        X = xarray.concat(covariate_arrays, dim='feature')
         return X
 
 
@@ -316,7 +327,7 @@ def test_fourier_input_creator(simple_df: tuple[pd.DataFrame, int]) -> None:
     # Check shapes
 
     assert model_input.X.shape[0] == n_locations
-    assert model_input.X.shape[2] == 3  # lag
+    assert model_input.X.shape[2] == 3  # lag * n_covariates
 
     assert model_input.y.shape[0] == n_locations
     assert model_input.y.shape[2] == MONTHS_PER_YEAR  # months
