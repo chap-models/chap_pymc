@@ -126,7 +126,7 @@ class Coords(pydantic.BaseModel):
 def simple_coords() -> Coords:
     locations = ['loc1', 'loc2']
     years = [2021, 2022]
-    variables = ['disease_cases', 'mean_temperature']
+    variables = ['disease_cases', 'mean_temperature', 'rainfall']
     return Coords(locations=locations, years=years, variables=variables)
 
 @pytest.fixture
@@ -182,13 +182,15 @@ def _weekly_data() -> pd.DataFrame:
             week_of_year = week_start.isocalendar()[1]
             disease_cases = 10 + 5 * np.sin(2 * np.pi * week_of_year / 52) + np.random.randn() * 0.5
             mean_temperature = 20 + 10 * np.sin(2 * np.pi * week_of_year / 52) + np.random.randn()
+            rainfall = 50 + 30 * np.sin(2 * np.pi * week_of_year / 52 + 1) + np.random.randn() * 5
 
             time_period = f'{week_start.strftime("%Y-%m-%d")}/{week_end.strftime("%Y-%m-%d")}'
             data.append({
                 'location': location,
                 'time_period': time_period,
                 'disease_cases': max(0, disease_cases),
-                'mean_temperature': mean_temperature
+                'mean_temperature': mean_temperature,
+                'rainfall': rainfall
             })
 
     return pd.DataFrame(data)
