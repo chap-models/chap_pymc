@@ -105,4 +105,4 @@ entry_points:
       out_file: str
       model_config: str
 
-python_env: pyenv.yaml
+uv_env: pyproject.toml
