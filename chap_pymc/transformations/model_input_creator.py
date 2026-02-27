@@ -71,7 +71,7 @@ class FourierInputCreator:
     """
     class Params(pydantic.BaseModel):
         lag: int = 3
-        covariates: list[str] = ['mean_temperature']
+        covariates: list[str] = ['mean_temperature', 'rainfall']
         seasonal_params: SeasonalXArray.Params = SeasonalXArray.Params()
         skip_bottom_n_seasons: int = 0
 
@@ -327,7 +327,7 @@ def test_fourier_input_creator(simple_df: tuple[pd.DataFrame, int]) -> None:
     # Check shapes
 
     assert model_input.X.shape[0] == n_locations
-    assert model_input.X.shape[2] == 3  # lag * n_covariates
+    assert model_input.X.shape[2] == 6  # lag(3) * n_covariates(2)
 
     assert model_input.y.shape[0] == n_locations
     assert model_input.y.shape[2] == MONTHS_PER_YEAR  # months
@@ -361,11 +361,13 @@ def simpled_df() -> tuple[pd.DataFrame, int]:
             # time_period = date.strftime('%Y-%m')
             disease_cases = np.sin(2 * np.pi * i / MONTHS_PER_YEAR) + 5 + np.random.randn() * 0.1
             mean_temperature = 20 + 10 * np.sin(2 * np.pi * i / MONTHS_PER_YEAR) + np.random.randn()
+            rainfall = 50 + 30 * np.sin(2 * np.pi * i / MONTHS_PER_YEAR + 1) + np.random.randn() * 5
             data.append({
                 'location': loc,
                 'time_period': time_period,
                 'disease_cases': max(0, disease_cases),
-                'mean_temperature': mean_temperature
+                'mean_temperature': mean_temperature,
+                'rainfall': rainfall
             })
 
     df = pd.DataFrame(data)

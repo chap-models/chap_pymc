@@ -252,7 +252,8 @@ def test_seasonal_fourier_regression_v2_weekly(weekly_data):
             future_rows.append({
                 'location': location,
                 'time_period': time_period,
-                'mean_temperature': 20.0  # dummy value
+                'mean_temperature': 20.0,  # dummy value
+                'rainfall': 50.0  # dummy value
             })
     future_data = pd.DataFrame(future_rows)
 
