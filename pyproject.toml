@@ -22,7 +22,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Mathematics",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "pymc>=5.0.0",
     "pytensor>=2.0.0",
