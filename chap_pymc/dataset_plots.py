@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Any
 
 import altair as alt
 import numpy as np
@@ -28,16 +29,16 @@ class DatasetPlot(ABC):
     def _get_feature_names(self) -> list:
         return [name for name in self._get_colnames() if name not in ('log1p', 'log1p', 'population')]
 
-    def _get_colnames(self) -> filter:
+    def _get_colnames(self) -> list[str]:
         colnames = filter(lambda name: name not in ('disease_cases', 'location', 'time_period') and not name.startswith('Unnamed'), self._df.columns)
         colnames = filter(lambda name: self._df[name].dtype.name in ('float64', 'int64', 'bool', 'int32', 'float32'), colnames)
         print(self._df.columns)
-        colnames = list(colnames)
-        print(colnames)
-        return colnames
+        result = list(colnames)
+        print(result)
+        return result
 
     @abstractmethod
-    def plot(self) -> alt.Chart:
+    def plot(self) -> Any:
         ...
 
     @abstractmethod
@@ -55,13 +56,13 @@ class StandardizedFeaturePlot(DatasetPlot):
         super().__init__(df)
         self.selected_features = selected_features
 
-    def _standardize(self, col: np.array) -> np.array:
+    def _standardize(self, col: np.ndarray) -> np.ndarray:
         # Handle NaN values properly
         mean_val = np.nanmean(col)
         std_val = np.nanstd(col)
         if std_val == 0:
-            return col - mean_val  # Return zero-centered values when std is 0
-        return (col - mean_val) / std_val
+            return np.asarray(col - mean_val)  # Return zero-centered values when std is 0
+        return np.asarray((col - mean_val) / std_val)
 
     def data(self) -> pd.DataFrame:
         df = self._df.copy()
@@ -81,7 +82,7 @@ class StandardizedFeaturePlot(DatasetPlot):
         for colname in colnames:
             if colname in df.columns:
                 new_df = base_df.copy()
-                new_df['value'] = self._standardize(df[colname].values)
+                new_df['value'] = self._standardize(np.asarray(df[colname].values))
                 new_df['feature'] = colname
                 dfs.append(new_df)
 
@@ -142,11 +143,12 @@ class StandardizedFeaturePlot(DatasetPlot):
         ).resolve_scale(
             y='shared'
         )
-        return alt.hconcat(legend_chart, main_chart).resolve_legend(
+        result: HConcatChart = alt.hconcat(legend_chart, main_chart).resolve_legend(
             color="independent"
         ).properties(
             title="Multiple Feature Selection (Click legend items to toggle)"
         )
+        return result
 
 
 def test_standardized_feature_plot(df: pd.DataFrame):

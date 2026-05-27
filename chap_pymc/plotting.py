@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
 import arviz as az
 import matplotlib.pyplot as plt
@@ -8,11 +8,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-if TYPE_CHECKING:
-    from example import Config
 
-
-def plot_seasonal_effects(idata, locations, config: 'Config', output_file: str):
+def plot_seasonal_effects(idata, locations, config: Any, output_file: str):
     """Plot seasonal effects with 90% confidence intervals for each location."""
 
     # Extract seasonal components from posterior - handle both centered and non-centered
@@ -207,11 +204,11 @@ def plot_location_effects(idata, locations, output_file: str):
     print(f"Location effects plot saved to: {output_file}")
 
 
-def plot_all_parameter_samples(idata, config: 'Config', output_file: str):
+def plot_all_parameter_samples(idata, config: Any, output_file: str):
     """Create a comprehensive figure showing sampling diagnostics for all parameters."""
 
     # Define parameter categories and their display properties
-    param_info = {
+    param_info: dict[str, dict[str, Any]] = {
         # Core parameters (always present)
         'intercept': {'label': 'Intercept', 'color': 'blue'},
         'sigma_rw': {'label': 'Random Walk σ', 'color': 'green'},
@@ -316,14 +313,14 @@ def plot_all_parameter_samples(idata, config: 'Config', output_file: str):
                           fontsize=8)
 
     plt.suptitle('Model Parameter Sampling Diagnostics', fontsize=14, fontweight='bold', y=0.98)
-    plt.tight_layout(rect=[0, 0, 1, 0.96])  # Leave space for suptitle
+    plt.tight_layout(rect=(0, 0, 1, 0.96))  # Leave space for suptitle
     plt.savefig(output_file, dpi=300, bbox_inches='tight')
     plt.close()
 
     print(f"Parameter samples plot saved to: {output_file}")
 
 
-def plot_parameter_summary_table(idata, config: 'Config', output_file: str):
+def plot_parameter_summary_table(idata, config: Any, output_file: str):
     """Create a summary table of all parameters with key statistics."""
 
     # Get all scalar parameters (exclude multi-dimensional random effects)
@@ -374,8 +371,13 @@ def plot_parameter_summary_table(idata, config: 'Config', output_file: str):
     df_stats['R-hat'] = df_stats['R-hat'].apply(lambda x: f'{x:.3f}' if not np.isnan(x) else 'N/A')
 
     # Create table
-    table = ax.table(cellText=df_stats.values, colLabels=df_stats.columns,
-                     cellLoc='center', loc='center', bbox=[0, 0, 1, 1])
+    table = ax.table(
+        cellText=df_stats.values.tolist(),
+        colLabels=list(df_stats.columns),
+        cellLoc='center',
+        loc='center',
+        bbox=(0.0, 0.0, 1.0, 1.0),  # type: ignore[arg-type]
+    )
 
     # Style the table
     table.auto_set_font_size(False)
@@ -401,7 +403,7 @@ def plot_parameter_summary_table(idata, config: 'Config', output_file: str):
 
 def create_model_visualization(train_data_file: str, historic_data_file: str,
                                predictions_file: str, output_file: str,
-                               config: 'Config'):
+                               config: Any):
     """Create comprehensive visualization of model training data, historic data, and predictions."""
 
     # Load all datasets
@@ -488,7 +490,7 @@ def create_model_visualization(train_data_file: str, historic_data_file: str,
     print(f"Visualization saved to: {output_file}")
 
 
-def create_parameter_plot(model_file: str, output_file: str, config: 'Config'):
+def create_parameter_plot(model_file: str, output_file: str, config: Any):
     """Create visualization of model parameters from posterior."""
 
     # Load model data
@@ -540,7 +542,7 @@ def create_parameter_plot(model_file: str, output_file: str, config: 'Config'):
     print(f"Parameter visualization saved to: {output_file}")
 
 
-def plot_model_components(model_file: str, output_dir: str, config: 'Config'):
+def plot_model_components(model_file: str, output_dir: str, config: Any):
     """Create specialized plots of model components from posterior samples."""
 
     # Load model data

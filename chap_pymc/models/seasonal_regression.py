@@ -1,6 +1,6 @@
 import dataclasses
 import logging
-from typing import Any
+from typing import Any, cast
 
 import cyclopts
 import numpy as np
@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 import pytest
 
 from chap_pymc.inference_params import InferenceParams
-from chap_pymc.transformations.model_input_creator import FullModelInput, ModelInputCreator, FourierModelInput
+from chap_pymc.transformations.model_input_creator import FullModelInput, ModelInputBase, ModelInputCreator, FourierModelInput
 from chap_pymc.transformations.seasonal_transform import SeasonalTransform
 
 TESTING=False
@@ -81,7 +81,7 @@ class SeasonalRegression:
     def predict(self, training_data: pd.DataFrame, return_idata: bool = False) -> pd.DataFrame | tuple[pd.DataFrame, Any]:
         model_input = self.create_model_input(training_data)
         with pm.Model() as _:
-            self.define_stable_model(model_input)
+            self.define_stable_model(cast(FullModelInput, model_input))
             idata = pm.sample(**self._inference_params.model_dump())
         # Unreachable code commented out:
         # if TESTING and False:
@@ -106,7 +106,7 @@ class SeasonalRegression:
 
         coords = creator.seasonal_data.coords() | {'feature': [f'temp_lag{self._lag-i}'for i in range(self._lag)]}
         with pm.Model(coords=coords):
-            DimensionalModel(self._model_params).build_model(model_input)
+            DimensionalModel(self._model_params).build_model(cast(Any, model_input))
             # define_stable_model(model_input, self._model_params)
             #graph = pm.model_to_graphviz(model)
             #graph.render('model_graph', format='png', view=True)
@@ -125,7 +125,7 @@ class SeasonalRegression:
         model_input = self.create_model_input(training_data)
 
         with pm.Model():
-            self.define_stable_model(model_input)
+            self.define_stable_model(cast(FullModelInput, model_input))
             approx = pm.fit(n=self._inference_params.n_iterations, method='advi')
 
         # Draw samples from the approximation
@@ -281,6 +281,7 @@ class SeasonalRegression:
             transformed_pattern = median_dict['transformed_pattern'][loc, plot_year_idx, :]
             epsilon = median_dict['epsilon'][loc, plot_year_idx, :]
             y_obs = training_data.y[loc, plot_year_idx, :]
+            assert training_data.seasonal_pattern is not None
             training_data.seasonal_pattern[loc, 0, :] + sampled_eta_val
             transformed_minus_epsilon = transformed_pattern - epsilon
 
@@ -449,6 +450,7 @@ class SeasonalRegression:
             plt.plot(u, label='upper', color= 'blue')
             plt.plot(lo, label='lower', color='blue')
             plt.plot(pre_noise[location, -1], label=f'Prenoise {location+1}', color='green')
+            assert model_input.seasonal_pattern is not None
             plt.plot(model_input.seasonal_pattern[location,0])
             plt.plot(model_input.y[location, -1], color='red')
             plt.legend()
@@ -603,8 +605,8 @@ def model_input() -> FullModelInput:
     return FullModelInput(
         X=X,
         y=y,
-        seasonal_pattern=np.sin(2 * np.pi * months // 12),
-        seasonal_errors=np.ones((L, 1, M)),
+        seasonal_pattern=xarray.DataArray(np.sin(2 * np.pi * months // 12)),
+        seasonal_errors=xarray.DataArray(np.ones((L, 1, M))),
         last_month=3
     )
 

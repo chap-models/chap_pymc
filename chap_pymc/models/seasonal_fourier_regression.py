@@ -141,6 +141,7 @@ class SeasonalFourierRegressionV2:
                 idata = approx.sample(inference_params.n_samples)
             posterior_predictive = pm.sample_posterior_predictive(idata, var_names=['y_obs', 'A']).posterior_predictive
         if self._name is not None:
+            TARGET_DIR.mkdir(parents=True, exist_ok=True)
             posterior_predictive.to_netcdf(TARGET_DIR / (self._name + '_posterior.nc'))
             idata.to_netcdf(TARGET_DIR / (self._name + 'idata.nc'))
             ds.to_netcdf(TARGET_DIR / (self._name + '_ds.nc'))

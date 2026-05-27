@@ -18,6 +18,7 @@ from chap_pymc.transformations.model_input_creator import FourierInputCreator
 logger   = logging.getLogger(__name__)
 
 
+@pytest.mark.slow
 def test_seasonal_fourier_regression_predict(viet_begin_season):
     """Test that SeasonalFourierRegression.predict works end-to-end"""
     # Create model with small MCMC params for fast testing
@@ -80,6 +81,7 @@ def test_weekly_full_year(weekly_full_year, full_inference_params):
         test_weekly_regression((training_df, future_df), full_inference_params, i, input_params=weekly_input_params)
 
 
+@pytest.mark.slow
 def test_weekly_regression(weekly_instance: tuple, inference_params, idx: int = 0, input_params=None):
     """Test weekly regression with plotting."""
     training_df, future_df = weekly_instance[0], weekly_instance[1]
@@ -126,6 +128,7 @@ def nepal_input_params():
 def debug_inference_params():
     return InferenceParams(draws=10, tune=10)
 
+@pytest.mark.slow
 def test_viet_regression(viet_first_instance, full_inference_params, idx: int = 0, country='vietnam', input_params=FourierInputCreator.Params()):
     training_df, future_df = viet_first_instance
     logger.info(future_df['time_period'].min())
@@ -144,6 +147,7 @@ def test_viet_regression(viet_first_instance, full_inference_params, idx: int = 
     assert not prediction_df['sample_1'].isnull().any(), prediction_df['sample_1'].unique()
 
 
+@pytest.mark.slow
 def test_seasonal_fourier_regression_advi(viet_begin_season, truth=None):
     """Test that SeasonalFourierRegression.predict works with ADVI (faster variational inference)"""
     # Create model with ADVI for faster inference
@@ -207,7 +211,7 @@ def test_compare_with_seasonal_regression(viet_begin_season):
     print(preds_fourier.head())
 
 
-#@pytest.mark.skip(reason="SeasonalFourierRegressionV2 implementation incomplete")
+@pytest.mark.slow
 def test_seasonal_fourier_regression_v2_basic(simple_monthly_data, simple_future_data):
     """Smoke test for SeasonalFourierRegressionV2 with simple data"""
     # Create V2 model with minimal params for fast testing
@@ -233,6 +237,7 @@ def test_seasonal_fourier_regression_v2_basic(simple_monthly_data, simple_future
     print(f"Columns: {result.columns.tolist()}")
 
 
+@pytest.mark.slow
 def test_seasonal_fourier_regression_v2_weekly(weekly_data):
     """Test SeasonalFourierRegressionV2 with weekly frequency data."""
     from chap_pymc.transformations.seasonal_xarray import SeasonalXArray

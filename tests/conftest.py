@@ -3,6 +3,14 @@ import logging
 from pathlib import Path
 from typing import Any, Generator
 
+import matplotlib
+matplotlib.use('Agg')  # Non-interactive backend; must run before any pyplot import
+import matplotlib.pyplot as plt
+plt.show = lambda *args, **kwargs: None  # type: ignore[assignment]
+
+import altair as alt
+alt.renderers.enable('default')  # Disable any browser/HTML renderer set at import time
+
 import chap_core
 import pandas as pd
 import pydantic
@@ -64,6 +72,8 @@ def nepal_data() -> pd.DataFrame:
     country = 'nepal_evaluation_set'
     offset = 6
     local_data_path = Path('/Users/knutdr/Sources/chap_benchmarking/csv_datasets')
+    if not (local_data_path / f'{country}.csv').exists():
+        pytest.skip(f'Local dataset not available: {country}.csv')
     df = get_test_instance(country, local_data_path, offset)
     return df
 
@@ -84,6 +94,8 @@ def viet_full_year(data_path) -> Generator[tuple[Any, Any], Any, None]:
 @pytest.fixture
 def nepal_full_year() -> Generator[tuple[Any, Any], Any, None]:
     data_path = Path('/Users/knutdr/Sources/chap_benchmarking/csv_datasets')
+    if not (data_path / 'nepal_evaluation_set.csv').exists():
+        pytest.skip('Local dataset not available: nepal_evaluation_set.csv')
     return get_full_year('nepal_evaluation_set', data_path)
 
 def get_weekly_full_year() -> Generator[tuple[Any, Any], Any, None]:
@@ -143,6 +155,8 @@ def simple_monthly_data(simple_coords) -> pd.DataFrame:
 @pytest.fixture
 def weekly_data() -> pd.DataFrame:
     path = Path('/Users/knutdr/Sources/chap_benchmarking/csv_datasets')
+    if not (path / 'ewars_weekly.csv').exists():
+        pytest.skip('Local dataset not available: ewars_weekly.csv')
     df = pd.read_csv(path / 'ewars_weekly.csv')
     return df
 

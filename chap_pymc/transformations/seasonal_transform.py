@@ -85,7 +85,10 @@ class SeasonalTransform:
         self._remove_first_year = self.first_seasonal_month > 0
 
     def _find_min_month(self) -> int:
-        means: list[tuple[int, float]] = [(month, group['y'].mean()) for month, group in self._df.groupby('month')]
+        means: list[tuple[int, float]] = [
+            (int(month), float(group['y'].mean()))  # type: ignore[arg-type]
+            for month, group in self._df.groupby('month')
+        ]
         min_month, val  = min(means, key=lambda x: x[1])
         max_month, val = max(means, key=lambda x: x[1])
         print(f"min_month: {min_month}, max_month: {max_month}")
@@ -100,6 +103,7 @@ class SeasonalTransform:
 
     def get_df(self, feature_name: str, start_year: int | None = None) -> pd.DataFrame:
         array = self[feature_name]
+        start = 0 if start_year is None else start_year
         rows = [
             {
                 'location': loc,
@@ -108,7 +112,7 @@ class SeasonalTransform:
                 feature_name: array[loc_idx, season_idx, month_idx]
             }
             for loc_idx, loc in enumerate(self._df['location'].unique())
-            for season_idx in range(start_year, array.shape[1])
+            for season_idx in range(start, array.shape[1])
             for month_idx in range(array.shape[2])
         ]
         return pd.DataFrame(rows)
@@ -205,7 +209,7 @@ class SeasonalTransform:
 
         logger.info(f"Padding {self._pad_right} months to the right")
         logger.info(f"Before right pad: data_array.shape = {data_array.shape}, pad_array.shape = {pad_array.shape}")
-        result = np.concatenate([data_array, pad_array], axis=-1)
+        result: np.ndarray = np.concatenate([data_array, pad_array], axis=-1)
         logger.info(f"After right pad: data_array.shape = {result.shape}")
         return result
 
@@ -231,7 +235,7 @@ class SeasonalTransform:
 
         logger.info(f"Padding {self._pad_left} months to the left")
         logger.info(f"Before left pad: data_array.shape = {data_array.shape}, left_pad_array.shape = {left_pad_array.shape}")
-        result = np.concatenate([left_pad_array, data_array], axis=-1)
+        result: np.ndarray = np.concatenate([left_pad_array, data_array], axis=-1)
         logger.info(f"After left pad: data_array.shape = {result.shape}")
         return result
 

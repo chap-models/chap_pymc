@@ -49,7 +49,7 @@ class CorrelationBarPlot(ABC):
         """
         df = self.data()
 
-        return alt.Chart(df).mark_bar().encode(
+        chart: alt.FacetChart = alt.Chart(df).mark_bar().encode(
             x=alt.X(f'{x_col}:N', title=x_title),
             y=alt.Y('correlation:Q', title='Correlation Coefficient'),
             color=alt.Color('correlation:Q',
@@ -65,3 +65,4 @@ class CorrelationBarPlot(ABC):
                 "subtitle": subtitle
             }
         )
+        return chart

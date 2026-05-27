@@ -1,10 +1,12 @@
+from typing import Any
+
 import arviz as az
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pymc as pm
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score  # type: ignore[import-untyped]
+from sklearn.model_selection import train_test_split  # type: ignore[import-untyped]
 
 from .season_plot import SeasonCorrelationPlot
 
@@ -14,9 +16,9 @@ def create_data_arrays(seasonal_data: pd.DataFrame, horizon=3):
     outcome = 'std'
     clean_data = seasonal_data.dropna(subset=[f'season_{outcome}', 'mean_temperature'])
     # Extract predictor and response variables
-    X = []
-    y = []
-    location_idx = []
+    X_list: list[np.ndarray] = []
+    y_list: list[Any] = []
+    loc_idx_list: list[int] = []
     n_locations = len(clean_data['location'].unique())
     n_seasons = 12
     for season_idx in clean_data['season_idx'].unique():
@@ -29,14 +31,14 @@ def create_data_arrays(seasonal_data: pd.DataFrame, horizon=3):
             mean_temp = data['mean_temperature'].values
             a = np.zeros(n_seasons)
             a[seasonal_month] = mean_temp
-            X.append(a)
-            y.append(data[f'season_{outcome}'].values[0])
-            location_idx.append(i)
-    X = np.array(X)
-    X = (X - X.mean())/X.std()  # Centering the predictor
-    y = np.array(y)
-    location_idx = np.array(location_idx)
-    return X, y, location_idx, n_locations, n_seasons
+            X_list.append(a)
+            y_list.append(data[f'season_{outcome}'].values[0])
+            loc_idx_list.append(i)
+    X_arr = np.array(X_list)
+    X_arr = (X_arr - X_arr.mean()) / X_arr.std()  # Centering the predictor
+    y_arr = np.array(y_list)
+    loc_idx_arr = np.array(loc_idx_list)
+    return X_arr, y_arr, loc_idx_arr, n_locations, n_seasons
 
 
 def basic_season_regression(df: pd.DataFrame, test_size=0.2, random_state=42):
