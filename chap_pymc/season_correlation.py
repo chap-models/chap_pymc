@@ -1,7 +1,13 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import altair as alt
 import numpy as np
 import pandas as pd
-from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
+
+if TYPE_CHECKING:
+    from chap_core.spatio_temporal_data.temporal_dataclass import DataSet
 
 
 class SeasonCorrelationPlot:
