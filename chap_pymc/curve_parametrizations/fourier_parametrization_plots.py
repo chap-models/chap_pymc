@@ -237,15 +237,23 @@ class FourierParameterCorrelationPlot(CorrelationBarPlot):
 
         return pd.DataFrame(correlations)
 
-    def plot(self) -> alt.FacetChart:
+    def plot(
+        self,
+        title: str = "Fourier Parameter - Temperature Feature Correlations",
+        subtitle: str = "Correlation between estimated Fourier parameters and temperature features across years, by location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
+        x_col: str = 'outcome',
+        x_title: str = 'Fourier Parameter',
+        row_facet: str = 'feature',
+        row_title: str = 'Temperature Feature',
+    ) -> alt.FacetChart:
         """Create bar plot using base class with custom parameters."""
         return super().plot(
-            title="Fourier Parameter - Temperature Feature Correlations",
-            subtitle="Correlation between estimated Fourier parameters and temperature features across years, by location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
-            x_col='outcome',
-            x_title='Fourier Parameter',
-            row_facet='feature',
-            row_title='Temperature Feature'
+            title=title,
+            subtitle=subtitle,
+            x_col=x_col,
+            x_title=x_title,
+            row_facet=row_facet,
+            row_title=row_title,
         )
 
 

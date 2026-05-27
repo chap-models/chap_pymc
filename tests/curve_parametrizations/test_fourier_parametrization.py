@@ -85,6 +85,7 @@ def test_vietnam_y_xarray_fixture(vietnam_y_xarray):
     print(f"Years: {list(vietnam_y_xarray.coords['epi_year'].values)}")
 
 
+@pytest.mark.slow
 def test_fourier_parametrization(y, coords):
     """Test Fourier parametrization with synthetic data and create faceted plot"""
     from chap_pymc.curve_parametrizations.fourier_parametrization_plots import (
@@ -175,6 +176,7 @@ def test_full_vietnam_regression(viet_full_year, skip=7):
         ds, mapping = creator.v2(viet_instance, future)
         test_vietnam_regression(ds, viet_idata_path=f'viet_{i}.nc', i=i)
 
+@pytest.mark.slow
 def test_full_nepal_regression(nepal_full_year):
     test_full_vietnam_regression(nepal_full_year, skip=0)
 
@@ -195,7 +197,7 @@ def test_vietnam_regression(vietnam_ds, viet_idata_path=None, i=0):
 
     with pm.Model(coords=viet_coords) as model:
         m.get_regression_model(vietnam_ds.X, vietnam_ds.y)
-        pm.model_to_graphviz(model).render('fourier_graph', format='png', view=True)
+        pm.model_to_graphviz(model).render('fourier_graph', format='png', view=False)
         if False:
             approx = pm.fit(n=100000, method='advi')
             # Sample from approximation
@@ -225,10 +227,12 @@ def test_vietnam_regression(vietnam_ds, viet_idata_path=None, i=0):
     plot_vietnam_faceted_predictions(vietnam_ds.y, mu_mean, mu_lower, mu_upper, viet_coords,
                                      output_file=f'vietnam_fourier_fit_{i}.png')
 
+@pytest.mark.slow
 def test_vietnam(viet_begin_season, debug_model):
     debug_model.predict(viet_begin_season)
 
 
+@pytest.mark.slow
 def test_nepal(nepal_data: pd.DataFrame, debug_model):
     global TESTING
     TESTING = True
@@ -306,7 +310,7 @@ def test_vietnam_fourier_fit(vietnam_y_xarray):
     # Build and sample the model
     with pm.Model(coords=coords) as model:
         FourierParametrization(FourierHyperparameters(n_harmonics=n_harmonics)).get_model(vietnam_y_xarray)
-        pm.model_to_graphviz(model).render('fourier_graph', format='png', view=True)
+        pm.model_to_graphviz(model).render('fourier_graph', format='png', view=False)
         idata = pm.sample(draws=500, tune=500, progressbar=True, return_inferencedata=True)
         posterior = pm.sample_posterior_predictive(idata, var_names=['y_obs', 'A']).posterior_predictive
 

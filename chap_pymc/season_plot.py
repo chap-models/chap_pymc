@@ -8,7 +8,7 @@ import pytest
 from chap_pymc.correlation_plots import CorrelationBarPlot
 from chap_pymc.dataset_plots import DatasetPlot
 
-alt.renderers.default = 'browser'
+alt.renderers.enable('browser')
 
 class SeasonPlot(DatasetPlot):
     def data(self) -> pd.DataFrame:
@@ -17,19 +17,22 @@ class SeasonPlot(DatasetPlot):
         df['time_period'] = pd.to_datetime(df['time_period'])
         df['month'] = df['time_period'].dt.month-1
         df['year'] = df['time_period'].dt.year
-        means = ((month, group['log1p'].mean()) for month, group in df.groupby('month'))
+        means = (
+            (int(month), float(group['log1p'].mean()))  # type: ignore[arg-type]
+            for month, group in df.groupby('month')
+        )
         min_month, val = min(means, key=lambda x: x[1])
         assert df['month'].max() == 11
-        offset_month = (df['month'] - min_month)
+        offset_month = df['month'].astype(int) - int(min_month)
         df['seasonal_month'] = (offset_month % 12)
-        df['season_idx'] = df['year'] + offset_month//12
+        df['season_idx'] = df['year'] + offset_month // 12
         # Create season_idx (season index based on years from start)
         df['season_idx'] = df['season_idx'] - df['season_idx'].min()
         return df
 
     def plot(self) -> alt.FacetChart:
         df = self.data()
-        return alt.Chart(df).mark_line(point=False, strokeWidth=2).encode(
+        chart: alt.FacetChart = alt.Chart(df).mark_line(point=False, strokeWidth=2).encode(
             x=alt.X('seasonal_month:O', title='Month'),
             y=alt.Y('log1p:Q', title='Log1p Disease Cases'),
             color=alt.Color('season_idx:N', title='Season Year')
@@ -37,6 +40,7 @@ class SeasonPlot(DatasetPlot):
             facet=alt.Facet('location:N', title='Location'),
             columns=3
         )
+        return chart
 
 class SeasonCorrelationPlot(DatasetPlot):
     def __init__(self, df: pd.DataFrame):
@@ -98,15 +102,24 @@ class SeasonCorrelationBarPlot(CorrelationBarPlot, SeasonCorrelationPlot):
 
         return pd.DataFrame(correlations)
 
-    def plot(self) -> alt.FacetChart:
+    def plot(
+        self,
+        title: str = "Seasonal Correlation Analysis",
+        subtitle: str = "Correlation between seasonal disease outcomes and features by location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
+        x_col: str = 'seasonal_month',
+        x_title: str = 'Seasonal Month',
+        row_facet: str = 'combination',
+        row_title: str = 'Feature vs Outcome',
+    ) -> alt.FacetChart:
         """Create bar plot using base class with custom parameters."""
-        return super().plot(
-            title="Seasonal Correlation Analysis",
-            subtitle="Correlation between seasonal disease outcomes and features by location. Red bars indicate negative correlation, blue bars indicate positive correlation.",
-            x_col='seasonal_month',
-            x_title='Seasonal Month',
-            row_facet='combination',
-            row_title='Feature vs Outcome'
+        return CorrelationBarPlot.plot(
+            self,
+            title=title,
+            subtitle=subtitle,
+            x_col=x_col,
+            x_title=x_title,
+            row_facet=row_facet,
+            row_title=row_title,
         )
 
 

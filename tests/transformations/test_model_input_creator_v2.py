@@ -15,7 +15,8 @@ class TestFourierInputCreatorV2:
         params = FourierInputCreator.Params(lag=3, seasonal_params=SeasonalXArray.Params())
         ds, mapping = FourierInputCreator(params=params).v2(simple_monthly_data, simple_future_data)
         assert isinstance(ds, xarray.Dataset)
-        assert ds.X.shape[-1] == 3
+        # 2 default covariates (mean_temperature, rainfall) × lag=3 = 6 features
+        assert ds.X.shape[-1] == 6
         assert not ds.X.isnull().any()  # No NaNs in X
         # TODO: Test v2() method end-to-end
         # - Verify it returns FourierModelInput
